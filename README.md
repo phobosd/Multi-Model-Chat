@@ -20,6 +20,7 @@ A modern, feature-rich web chat application that allows you to interact with mul
 Click the **Settings** (gear icon) in the sidebar to open the configuration modal.
 
 ![Settings Modal](docs/images/settings_modal.png)
+![Model Configuration](docs/images/Screenshot_14.png)
 
 -   **OpenAI**: Enter your API Key.
 -   **Gemini**: Enter your Google AI API Key.
@@ -61,7 +62,7 @@ graph TD
     subgraph "External Providers"
         API --> OpenAI[OpenAI API]
         API --> Gemini[Google Gemini API]
-        API --> Local[Local LLM (LM Studio/Ollama)]
+        API --> Local[Local LLM - LM Studio or Ollama]
     end
     
     API -.->|Streamed Response| UI
