@@ -111,6 +111,7 @@ export async function fetchExoActiveModels(config: { baseUrl: string, apiKey?: s
         }
 
         const data = await response.json();
+        console.log('[EXO] State Data:', data);
 
         // EXO /state typically returns an object with an 'instances' key
         // We look for model names in the active instances
@@ -118,15 +119,31 @@ export async function fetchExoActiveModels(config: { baseUrl: string, apiKey?: s
 
         if (data.instances && typeof data.instances === 'object') {
             Object.values(data.instances).forEach((inst: any) => {
-                if (inst.model_id) {
-                    activeModels.push(inst.model_id);
-                } else if (inst.model && inst.model.name) {
-                    activeModels.push(inst.model.name);
-                }
+                if (inst.model_id) activeModels.push(inst.model_id);
+                else if (inst.model?.name) activeModels.push(inst.model.name);
+                else if (inst.model?.model_id) activeModels.push(inst.model.model_id);
             });
         }
 
-        return [...new Set(activeModels)]; // Unique models only
+        // 2. Try 'active_models' (alternative)
+        if (data.active_models && Array.isArray(data.active_models)) {
+            data.active_models.forEach((m: any) => {
+                if (typeof m === 'string') activeModels.push(m);
+                else if (m.model_id) activeModels.push(m.model_id);
+            });
+        }
+
+        // 3. Try top-level array (if data itself is an array of instances)
+        if (Array.isArray(data)) {
+            data.forEach((inst: any) => {
+                if (inst.model_id) activeModels.push(inst.model_id);
+                else if (inst.model?.name) activeModels.push(inst.model.name);
+            });
+        }
+
+        const uniqueModels = [...new Set(activeModels)];
+        console.log('[EXO] Parsed Active Models:', uniqueModels);
+        return uniqueModels;
     } catch (error) {
         console.error('Error fetching EXO active models:', error);
         throw error;

@@ -197,6 +197,7 @@ app.post('/api/exo/state', async (req, res) => {
         }
 
         const data = await response.json();
+        console.log('[EXO State] Response:', JSON.stringify(data, null, 2));
         res.json(data);
     } catch (error) {
         console.error('EXO State Proxy Error:', error);
