@@ -179,6 +179,31 @@ app.post('/api/models', async (req, res) => {
     }
 });
 
+// Proxy for EXO state (active instances)
+app.post('/api/exo/state', async (req, res) => {
+    const { baseUrl, apiKey } = req.body;
+
+    try {
+        if (!baseUrl) throw new Error('Base URL required for EXO state discovery');
+        const cleanBaseUrl = baseUrl.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+        const url = `${cleanBaseUrl}/state`;
+
+        const headers = {};
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+            return res.status(response.status).json({ error: response.statusText });
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('EXO State Proxy Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Backend proxy server running on http://localhost:${PORT}`);
 });

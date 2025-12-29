@@ -172,8 +172,8 @@ function ModelCard({ model, onUpdate, onRemove }: {
                                             apiKey: data.apiKey
                                         });
                                         if (models.length > 0) {
-                                            alert(`Discovered ${models.length} models: ${models.join(', ')}`);
-                                            setData({ ...data, modelId: models[0] });
+                                            alert(`Discovered ${models.length} available models: ${models.join(', ')}`);
+                                            setDiscoveredModels(models);
                                         } else {
                                             alert('No models found at this endpoint.');
                                         }
@@ -184,8 +184,34 @@ function ModelCard({ model, onUpdate, onRemove }: {
                                 }}
                                 className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs whitespace-nowrap"
                             >
-                                Discover
+                                Discover All
                             </button>
+                            {data.provider === 'exo' && (
+                                <button
+                                    onClick={async () => {
+                                        if (!data.baseUrl) return;
+                                        try {
+                                            const { fetchExoActiveModels } = await import('@/services/api');
+                                            const models = await fetchExoActiveModels({
+                                                baseUrl: data.baseUrl,
+                                                apiKey: data.apiKey
+                                            });
+                                            if (models.length > 0) {
+                                                alert(`Discovered ${models.length} ACTIVE instances: ${models.join(', ')}`);
+                                                setDiscoveredModels(models);
+                                            } else {
+                                                alert('No active model instances found. You may need to run "exo run <model>" first.');
+                                            }
+                                        } catch (error) {
+                                            alert('Failed to fetch active models. Check console for details.');
+                                            console.error(error);
+                                        }
+                                    }}
+                                    className="px-3 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs whitespace-nowrap"
+                                >
+                                    Discover Active
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

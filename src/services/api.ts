@@ -95,3 +95,40 @@ export async function fetchModels(config: { provider: string, apiKey?: string, b
         throw error;
     }
 }
+
+export async function fetchExoActiveModels(config: { baseUrl: string, apiKey?: string }): Promise<string[]> {
+    try {
+        const response = await fetch(`${API_BASE}/exo/state`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(config),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch EXO state: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // EXO /state typically returns an object with an 'instances' key
+        // We look for model names in the active instances
+        const activeModels: string[] = [];
+
+        if (data.instances && typeof data.instances === 'object') {
+            Object.values(data.instances).forEach((inst: any) => {
+                if (inst.model_id) {
+                    activeModels.push(inst.model_id);
+                } else if (inst.model && inst.model.name) {
+                    activeModels.push(inst.model.name);
+                }
+            });
+        }
+
+        return [...new Set(activeModels)]; // Unique models only
+    } catch (error) {
+        console.error('Error fetching EXO active models:', error);
+        throw error;
+    }
+}
