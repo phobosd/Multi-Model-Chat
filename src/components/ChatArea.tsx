@@ -1,13 +1,13 @@
 import { PromptBar } from './PromptBar';
 import { Bot, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useChatStore, type Message } from '@/store/chatStore';
+import { useChatStore, type Message, type MessageStats } from '@/store/chatStore';
 import { sendMessage } from '@/services/api';
 import { useState, useEffect, useRef } from 'react';
 import type { ModelConfig } from '@/store/settingsStore';
-import { Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { Brain, ChevronDown, ChevronUp, Zap, Clock, Activity } from 'lucide-react';
 
-function MessageContent({ content, isGenerating }: { content: string; isGenerating: boolean }) {
+function MessageContent({ content, isGenerating, stats }: { content: string; isGenerating: boolean; stats?: MessageStats }) {
     const [isThoughtExpanded, setIsThoughtExpanded] = useState(false);
 
     // Parse thinking tags
@@ -64,6 +64,29 @@ function MessageContent({ content, isGenerating }: { content: string; isGenerati
                     Generating response...
                 </div>
             )}
+
+            {stats && !isGenerating && (
+                <div className="mt-4 pt-3 border-t border-slate-700/30 flex flex-wrap gap-4 text-[10px] text-slate-500 font-medium">
+                    <div className="flex items-center gap-1.5">
+                        <Zap size={12} className="text-amber-500/50" />
+                        <span>{stats.tokensPerSecond} t/s</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <Activity size={12} className="text-blue-500/50" />
+                        <span>{stats.totalTokens} tokens</span>
+                    </div>
+                    {stats.thinkingTimeMs !== undefined && stats.thinkingTimeMs > 0 && (
+                        <div className="flex items-center gap-1.5">
+                            <Brain size={12} className="text-purple-500/50" />
+                            <span>{(stats.thinkingTimeMs / 1000).toFixed(2)}s thought</span>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                        <Clock size={12} className="text-emerald-500/50" />
+                        <span>{(stats.totalTimeMs! / 1000).toFixed(2)}s total</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -104,6 +127,10 @@ export function ChatArea() {
 
         setIsGenerating(true);
 
+        const startTime = Date.now();
+        let firstTokenTime: number | null = null;
+        let tokenCount = 0;
+
         try {
             // Get the session to find the ID of the message we just added
             const session = useChatStore.getState().sessions.find(s => s.id === currentSessionId);
@@ -121,9 +148,30 @@ export function ChatArea() {
             let fullContent = '';
 
             for await (const chunk of stream) {
+                if (firstTokenTime === null && chunk.trim().length > 0) {
+                    firstTokenTime = Date.now();
+                }
+
                 fullContent += chunk;
+                // Estimate tokens: 1 token per 4 characters is a common heuristic
+                tokenCount = Math.ceil(fullContent.length / 4);
+
                 updateMessage(currentSessionId, realAssistantMessage.id, fullContent);
             }
+
+            const endTime = Date.now();
+            const totalTimeMs = endTime - startTime;
+            const thinkingTimeMs = firstTokenTime ? firstTokenTime - startTime : 0;
+            const generationTimeMs = firstTokenTime ? endTime - firstTokenTime : totalTimeMs;
+
+            const tokensPerSecond = generationTimeMs > 0 ? (tokenCount / (generationTimeMs / 1000)) : 0;
+
+            useChatStore.getState().updateMessageStats(currentSessionId, realAssistantMessage.id, {
+                tokensPerSecond: parseFloat(tokensPerSecond.toFixed(1)),
+                totalTokens: tokenCount,
+                thinkingTimeMs,
+                totalTimeMs
+            });
 
             // Auto-name the chat if it's the first message
             if (isFirstMessage) {
@@ -191,6 +239,7 @@ export function ChatArea() {
                             <MessageContent
                                 content={typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
                                 isGenerating={msg.role === 'assistant' && isGenerating && msg.id === currentSession.messages[currentSession.messages.length - 1].id}
+                                stats={msg.stats}
                             />
                         </div>
 

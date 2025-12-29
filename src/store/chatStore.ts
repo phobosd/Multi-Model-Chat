@@ -2,12 +2,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { generateUUID } from '@/lib/uuid';
 
+export interface MessageStats {
+    tokensPerSecond?: number;
+    totalTokens?: number;
+    thinkingTimeMs?: number;
+    totalTimeMs?: number;
+}
+
 export interface Message {
     id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
     timestamp: number;
     attachments?: string[]; // URLs or base64
+    stats?: MessageStats;
 }
 
 export interface ChatSession {
@@ -25,6 +33,7 @@ interface ChatState {
     selectSession: (id: string) => void;
     addMessage: (sessionId: string, message: Omit<Message, 'id' | 'timestamp'>) => void;
     updateMessage: (sessionId: string, messageId: string, content: string) => void;
+    updateMessageStats: (sessionId: string, messageId: string, stats: MessageStats) => void;
     updateSessionTitle: (id: string, title: string) => void;
     deleteSession: (id: string) => void;
 }
@@ -81,6 +90,23 @@ export const useChatStore = create<ChatState>()(
                                 ...session,
                                 messages: session.messages.map((msg) =>
                                     msg.id === messageId ? { ...msg, content } : msg
+                                ),
+                                updatedAt: Date.now(),
+                            };
+                        }
+                        return session;
+                    }),
+                }));
+            },
+
+            updateMessageStats: (sessionId, messageId, stats) => {
+                set((state) => ({
+                    sessions: state.sessions.map((session) => {
+                        if (session.id === sessionId) {
+                            return {
+                                ...session,
+                                messages: session.messages.map((msg) =>
+                                    msg.id === messageId ? { ...msg, stats } : msg
                                 ),
                                 updatedAt: Date.now(),
                             };
