@@ -16,7 +16,33 @@ app.post('/api/chat', async (req, res) => {
     const { messages, model } = req.body;
     const { provider, apiKey, baseUrl, modelId } = model;
 
+    console.log(`[Chat] Request for provider: ${provider}, model: ${modelId}`);
+
     try {
+        // Format messages for OpenAI-compatible APIs (OpenAI, Custom, EXO)
+        const formatMessages = (msgs) => {
+            return msgs.map(m => {
+                let content = m.content;
+
+                // Handle attachments if they exist
+                if (m.attachments && m.attachments.length > 0) {
+                    const parts = [{ type: 'text', text: content }];
+                    m.attachments.forEach(att => {
+                        parts.push({
+                            type: 'image_url',
+                            image_url: { url: att }
+                        });
+                    });
+                    content = parts;
+                }
+
+                return {
+                    role: m.role,
+                    content: content
+                };
+            });
+        };
+
         if (provider === 'openai' || provider === 'custom' || provider === 'exo') {
             let url = '';
             if (provider === 'custom' || provider === 'exo') {
@@ -32,19 +58,28 @@ app.post('/api/chat', async (req, res) => {
             };
             if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
+            const apiBody = {
+                model: modelId || (provider === 'openai' ? 'gpt-4-turbo-preview' : 'gpt-3.5-turbo'),
+                messages: formatMessages(messages),
+                stream: true,
+            };
+
+            console.log(`[Chat] Forwarding to: ${url}`);
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({
-                    model: modelId || (provider === 'openai' ? 'gpt-4-turbo-preview' : 'gpt-3.5-turbo'),
-                    messages,
-                    stream: true,
-                }),
+                body: JSON.stringify(apiBody),
             });
 
             if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                return res.status(response.status).json(error);
+                const errorText = await response.text();
+                console.error(`[Chat] Provider Error (${response.status}):`, errorText);
+                try {
+                    return res.status(response.status).json(JSON.parse(errorText));
+                } catch (e) {
+                    return res.status(response.status).json({ error: errorText });
+                }
             }
 
             // Set headers for streaming
@@ -54,6 +89,11 @@ app.post('/api/chat', async (req, res) => {
 
             // Pipe the stream
             response.body.pipe(res);
+
+            response.body.on('error', (err) => {
+                console.error('[Chat] Stream Error:', err);
+                res.end();
+            });
         } else if (provider === 'gemini') {
             if (!apiKey) throw new Error('API Key required for Gemini');
 
