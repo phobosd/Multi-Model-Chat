@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { generateUUID } from '@/lib/uuid';
 
 export interface Message {
     id: string;
@@ -36,7 +37,7 @@ export const useChatStore = create<ChatState>()(
 
             createSession: () => {
                 const newSession: ChatSession = {
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     title: 'New Chat',
                     messages: [],
                     createdAt: Date.now(),
@@ -60,7 +61,7 @@ export const useChatStore = create<ChatState>()(
                                     ...session.messages,
                                     {
                                         ...message,
-                                        id: crypto.randomUUID(),
+                                        id: generateUUID(),
                                         timestamp: Date.now(),
                                     },
                                 ],
