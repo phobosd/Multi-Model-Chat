@@ -5,6 +5,69 @@ import { useChatStore, type Message } from '@/store/chatStore';
 import { sendMessage } from '@/services/api';
 import { useState, useEffect, useRef } from 'react';
 import type { ModelConfig } from '@/store/settingsStore';
+import { Brain, ChevronDown, ChevronUp } from 'lucide-react';
+
+function MessageContent({ content, isGenerating }: { content: string; isGenerating: boolean }) {
+    const [isThoughtExpanded, setIsThoughtExpanded] = useState(false);
+
+    // Parse thinking tags
+    const thinkMatch = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
+    const hasThink = !!thinkMatch;
+    const thoughtContent = thinkMatch ? thinkMatch[1].trim() : '';
+    const mainContent = content.replace(/<think>[\s\S]*?<\/think>/, '').trim() || (thinkMatch && !content.includes('</think>') ? '' : content);
+
+    if (!hasThink) {
+        return (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                {content}
+                {isGenerating && <span className="inline-block w-2 h-4 ml-1 bg-blue-400 animate-pulse align-middle" />}
+            </p>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="border-l-2 border-slate-700 pl-3 py-1 my-1">
+                <button
+                    onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
+                    className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-slate-500 hover:text-slate-400 transition-colors mb-1"
+                >
+                    <Brain size={12} className="text-blue-500/50" />
+                    <span>Thought Process</span>
+                    {isThoughtExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                </button>
+
+                {isThoughtExpanded ? (
+                    <div className="text-xs text-slate-400 italic leading-relaxed whitespace-pre-wrap">
+                        {thoughtContent}
+                        {!content.includes('</think>') && isGenerating && (
+                            <span className="inline-block w-1.5 h-3 ml-1 bg-slate-600 animate-pulse align-middle" />
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-[10px] text-slate-600 truncate max-w-md italic">
+                        {thoughtContent.substring(0, 100)}...
+                    </div>
+                )}
+            </div>
+
+            {mainContent && (
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {mainContent}
+                    {isGenerating && <span className="inline-block w-2 h-4 ml-1 bg-blue-400 animate-pulse align-middle" />}
+                </p>
+            )}
+
+            {!mainContent && !content.includes('</think>') && isGenerating && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 animate-pulse">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    Generating response...
+                </div>
+            )}
+        </div>
+    );
+}
+
 
 export function ChatArea() {
     const { sessions, currentSessionId, addMessage, updateMessage, createSession } = useChatStore();
@@ -112,12 +175,10 @@ export function ChatArea() {
                                     ))}
                                 </div>
                             )}
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                                {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
-                                {msg.role === 'assistant' && isGenerating && msg.id === currentSession.messages[currentSession.messages.length - 1].id && (
-                                    <span className="inline-block w-2 h-4 ml-1 bg-blue-400 animate-pulse align-middle" />
-                                )}
-                            </p>
+                            <MessageContent
+                                content={typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
+                                isGenerating={msg.role === 'assistant' && isGenerating && msg.id === currentSession.messages[currentSession.messages.length - 1].id}
+                            />
                         </div>
 
                         {msg.role === 'user' && (
