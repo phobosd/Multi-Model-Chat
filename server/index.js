@@ -44,9 +44,11 @@ app.post('/api/chat', async (req, res) => {
         };
 
         const controller = new AbortController();
-        req.on('close', () => {
-            console.log('[Chat] Client disconnected, aborting upstream request');
-            controller.abort();
+        res.on('close', () => {
+            if (!res.writableEnded) {
+                console.log('[Chat] Client disconnected, aborting upstream request');
+                controller.abort();
+            }
         });
 
         if (provider === 'openai' || provider === 'custom' || provider === 'exo') {
@@ -150,9 +152,11 @@ app.post('/api/chat', async (req, res) => {
         } else {
             res.status(400).json({ error: `Provider ${provider} not implemented` });
         }
+
+        console.log('[Chat] Request completed successfully');
     } catch (error) {
         if (error.name === 'AbortError') {
-            console.log('[Chat] Request aborted by client');
+            console.log('[Chat] Request aborted (client disconnected or user stopped)');
         } else {
             console.error('Proxy Error:', error);
             if (!res.headersSent) {
