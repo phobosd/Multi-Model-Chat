@@ -161,3 +161,50 @@ export async function fetchExoActiveModels(config: { baseUrl: string, apiKey?: s
         throw error;
     }
 }
+
+export async function loadExoModel(config: { baseUrl: string, apiKey?: string, modelId: string }): Promise<void> {
+    try {
+        // 1. Get previews
+        const previewRes = await fetch(`${API_BASE}/exo/instance/previews`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                baseUrl: config.baseUrl,
+                apiKey: config.apiKey,
+                modelId: config.modelId
+            }),
+        });
+
+        if (!previewRes.ok) {
+            const err = await previewRes.json();
+            throw new Error(err.error || 'Failed to fetch previews');
+        }
+
+        const previews = await previewRes.json();
+        if (!previews || previews.length === 0) {
+            throw new Error('No valid placements found for this model on the cluster.');
+        }
+
+        // 2. Use the first preview to create the instance
+        // The 'instance' field in the preview is what we need for the POST /instance
+        const instanceConfig = previews[0].instance;
+
+        const createRes = await fetch(`${API_BASE}/exo/instance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                baseUrl: config.baseUrl,
+                apiKey: config.apiKey,
+                instanceConfig
+            }),
+        });
+
+        if (!createRes.ok) {
+            const err = await createRes.json();
+            throw new Error(err.error || 'Failed to create instance');
+        }
+    } catch (error) {
+        console.error('Error loading EXO model:', error);
+        throw error;
+    }
+}

@@ -105,6 +105,7 @@ function ModelCard({ model, onUpdate, onRemove }: {
     const [isEditing, setIsEditing] = useState(false);
     const [data, setData] = useState(model);
     const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+    const [isLoadingModel, setIsLoadingModel] = useState<string | null>(null);
 
     const handleSave = () => {
         onUpdate(model.id, data);
@@ -230,16 +231,48 @@ function ModelCard({ model, onUpdate, onRemove }: {
                             {discoveredModels.length > 0 && (
                                 <div className="absolute top-full left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-slate-900 border border-slate-800 rounded-lg shadow-xl z-20">
                                     {discoveredModels.map(m => (
-                                        <button
-                                            key={m}
-                                            onClick={() => {
-                                                setData({ ...data, modelId: m });
-                                                setDiscoveredModels([]);
-                                            }}
-                                            className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-                                        >
-                                            {m}
-                                        </button>
+                                        <div key={m} className="flex items-center justify-between px-3 py-2 hover:bg-slate-800 group/item transition-colors">
+                                            <button
+                                                onClick={() => {
+                                                    setData({ ...data, modelId: m });
+                                                    setDiscoveredModels([]);
+                                                }}
+                                                className="flex-1 text-left text-xs text-slate-300 group-hover/item:text-white truncate mr-2"
+                                            >
+                                                {m}
+                                            </button>
+                                            {data.provider === 'exo' && (
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        if (!data.baseUrl) return;
+                                                        setIsLoadingModel(m);
+                                                        try {
+                                                            const { loadExoModel } = await import('@/services/api');
+                                                            await loadExoModel({
+                                                                baseUrl: data.baseUrl,
+                                                                apiKey: data.apiKey,
+                                                                modelId: m
+                                                            });
+                                                            alert(`Successfully loaded ${m} on the cluster!`);
+                                                        } catch (error) {
+                                                            alert(`Failed to load model: ${error instanceof Error ? error.message : String(error)}`);
+                                                        } finally {
+                                                            setIsLoadingModel(null);
+                                                        }
+                                                    }}
+                                                    disabled={!!isLoadingModel}
+                                                    className={cn(
+                                                        "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
+                                                        isLoadingModel === m
+                                                            ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                                                            : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-900/20"
+                                                    )}
+                                                >
+                                                    {isLoadingModel === m ? 'Loading...' : 'Load'}
+                                                </button>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             )}

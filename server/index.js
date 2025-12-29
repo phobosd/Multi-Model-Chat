@@ -205,6 +205,65 @@ app.post('/api/exo/state', async (req, res) => {
     }
 });
 
+// Proxy for EXO instance previews
+app.post('/api/exo/instance/previews', async (req, res) => {
+    const { baseUrl, apiKey, modelId } = req.body;
+
+    try {
+        if (!baseUrl) throw new Error('Base URL required for EXO preview');
+        const cleanBaseUrl = baseUrl.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+        const url = `${cleanBaseUrl}/instance/previews?model_id=${encodeURIComponent(modelId)}`;
+
+        const headers = {};
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+            const errorText = await response.text();
+            return res.status(response.status).json({ error: errorText });
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('EXO Preview Proxy Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Proxy for EXO instance creation (loading a model)
+app.post('/api/exo/instance', async (req, res) => {
+    const { baseUrl, apiKey, instanceConfig } = req.body;
+
+    try {
+        if (!baseUrl) throw new Error('Base URL required for EXO instance creation');
+        const cleanBaseUrl = baseUrl.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+        const url = `${cleanBaseUrl}/instance`;
+
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(instanceConfig)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return res.status(response.status).json({ error: errorText });
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('EXO Instance Creation Proxy Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Backend proxy server running on http://localhost:${PORT}`);
 });
