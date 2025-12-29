@@ -70,7 +70,7 @@ function MessageContent({ content, isGenerating }: { content: string; isGenerati
 
 
 export function ChatArea() {
-    const { sessions, currentSessionId, addMessage, updateMessage, createSession } = useChatStore();
+    const { sessions, currentSessionId, addMessage, updateMessage, createSession, updateSessionTitle } = useChatStore();
     const [isGenerating, setIsGenerating] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -109,6 +109,8 @@ export function ChatArea() {
             const session = useChatStore.getState().sessions.find(s => s.id === currentSessionId);
             if (!session) return;
 
+            const isFirstMessage = session.messages.length === 2; // User message + Assistant placeholder
+
             const realAssistantMessage = session.messages[session.messages.length - 1];
             if (!realAssistantMessage) return;
 
@@ -121,6 +123,17 @@ export function ChatArea() {
             for await (const chunk of stream) {
                 fullContent += chunk;
                 updateMessage(currentSessionId, realAssistantMessage.id, fullContent);
+            }
+
+            // Auto-name the chat if it's the first message
+            if (isFirstMessage) {
+                const firstPrompt = content.trim();
+                // Simple logic: first 40 chars, or first line
+                let title = firstPrompt.split('\n')[0];
+                if (title.length > 40) {
+                    title = title.substring(0, 37) + '...';
+                }
+                updateSessionTitle(currentSessionId, title);
             }
         } catch (error) {
             console.error('Failed to send message:', error);
