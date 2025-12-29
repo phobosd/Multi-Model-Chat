@@ -18,4 +18,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    host: true, // Listen on all addresses, including LAN and public IP
+    port: 5173,
+  },
+  preview: {
+    host: true,
+    port: 4173,
+  },
 })
