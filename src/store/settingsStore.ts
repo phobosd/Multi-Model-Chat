@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 export interface ModelConfig {
     id: string;
     name: string;
-    provider: 'openai' | 'gemini' | 'custom';
+    provider: 'openai' | 'gemini' | 'custom' | 'exo';
     enabled: boolean;
     apiKey?: string;
     baseUrl?: string; // For custom/local models

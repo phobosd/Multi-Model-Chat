@@ -62,6 +62,20 @@ export function SettingsModal() {
                                         <Plus size={16} />
                                         Add Custom
                                     </button>
+                                    <button
+                                        onClick={() => addModel({
+                                            id: `exo-${Date.now()}`,
+                                            name: 'EXO Model',
+                                            provider: 'exo',
+                                            enabled: true,
+                                            baseUrl: 'http://localhost:52415/v1',
+                                            modelId: 'llama3'
+                                        })}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm transition-colors"
+                                    >
+                                        <Plus size={16} />
+                                        Add EXO
+                                    </button>
                                 </div>
 
                                 <div className="space-y-4">
@@ -118,6 +132,7 @@ function ModelCard({ model, onUpdate, onRemove }: {
                         >
                             <option value="openai">OpenAI</option>
                             <option value="gemini">Gemini</option>
+                            <option value="exo">EXO</option>
                             <option value="custom">Custom / Local</option>
                         </select>
                     </div>
@@ -134,14 +149,16 @@ function ModelCard({ model, onUpdate, onRemove }: {
                     />
                 </div>
 
-                {data.provider === 'custom' && (
+                {(data.provider === 'custom' || data.provider === 'exo') && (
                     <div>
-                        <label className="block text-xs text-slate-400 mb-1">Base URL (e.g., http://localhost:1234/v1)</label>
+                        <label className="block text-xs text-slate-400 mb-1">
+                            {data.provider === 'exo' ? 'EXO Base URL (Default: http://localhost:52415/v1)' : 'Base URL (e.g., http://localhost:1234/v1)'}
+                        </label>
                         <div className="flex gap-2">
                             <input
                                 value={data.baseUrl || ''}
                                 onChange={(e) => setData({ ...data, baseUrl: e.target.value })}
-                                placeholder="http://localhost:11434/v1"
+                                placeholder={data.provider === 'exo' ? 'http://localhost:52415/v1' : 'http://localhost:11434/v1'}
                                 className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
                             />
                             <button
@@ -150,7 +167,7 @@ function ModelCard({ model, onUpdate, onRemove }: {
                                     try {
                                         const { fetchModels } = await import('@/services/api');
                                         const models = await fetchModels({
-                                            provider: 'custom',
+                                            provider: data.provider,
                                             baseUrl: data.baseUrl,
                                             apiKey: data.apiKey
                                         });
@@ -249,7 +266,8 @@ function ModelCard({ model, onUpdate, onRemove }: {
                         "text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold",
                         model.provider === 'openai' ? "bg-green-500/10 text-green-400" :
                             model.provider === 'gemini' ? "bg-purple-500/10 text-purple-400" :
-                                "bg-orange-500/10 text-orange-400"
+                                model.provider === 'exo' ? "bg-indigo-500/10 text-indigo-400" :
+                                    "bg-orange-500/10 text-orange-400"
                     )}>
                         {model.provider}
                     </span>

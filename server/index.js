@@ -17,9 +17,9 @@ app.post('/api/chat', async (req, res) => {
     const { provider, apiKey, baseUrl, modelId } = model;
 
     try {
-        if (provider === 'openai' || provider === 'custom') {
+        if (provider === 'openai' || provider === 'custom' || provider === 'exo') {
             let url = '';
-            if (provider === 'custom') {
+            if (provider === 'custom' || provider === 'exo') {
                 const cleanBaseUrl = baseUrl?.replace(/\/$/, '') || '';
                 const finalBaseUrl = cleanBaseUrl.endsWith('/v1') ? cleanBaseUrl : `${cleanBaseUrl}/v1`;
                 url = `${finalBaseUrl}/chat/completions`;
@@ -118,8 +118,8 @@ app.post('/api/models', async (req, res) => {
         } else if (provider === 'gemini') {
             if (!apiKey) throw new Error('API Key required for Gemini model discovery');
             url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-        } else {
-            if (!baseUrl) throw new Error('Base URL required for custom model discovery');
+        } else if (provider === 'exo' || provider === 'custom') {
+            if (!baseUrl) throw new Error('Base URL required for model discovery');
             const cleanBaseUrl = baseUrl.replace(/\/$/, '');
             const finalBaseUrl = cleanBaseUrl.endsWith('/v1') ? cleanBaseUrl : `${cleanBaseUrl}/v1`;
             url = `${finalBaseUrl}/models`;

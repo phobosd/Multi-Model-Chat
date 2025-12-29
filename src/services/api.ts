@@ -26,8 +26,8 @@ export async function* sendMessage(
 
     if (!response.body) throw new Error('No response body');
 
-    // Handle streaming for OpenAI/Custom
-    if (model.provider === 'openai' || model.provider === 'custom') {
+    // Handle streaming for OpenAI/Custom/EXO
+    if (model.provider === 'openai' || model.provider === 'custom' || model.provider === 'exo') {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
