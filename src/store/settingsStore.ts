@@ -24,8 +24,14 @@ export const useSettingsStore = create<SettingsState>()(
     persist(
         (set) => ({
             models: [
-                { id: 'gpt-4', name: 'GPT-4 Turbo', provider: 'openai', enabled: true, modelId: 'gpt-4-turbo' },
-                { id: 'gemini-flash', name: 'Gemini 1.5 Flash', provider: 'gemini', enabled: true, modelId: 'gemini-1.5-flash' },
+                {
+                    id: 'exo-qwen-30b',
+                    name: 'EXO Qwen 30B',
+                    provider: 'exo',
+                    enabled: true,
+                    baseUrl: 'http://10.244.250.55:8000/v1',
+                    modelId: 'mlx-community/Qwen3-30B-A3B-4bit'
+                },
             ],
             isOpen: false,
             addModel: (model) => set((state) => ({ models: [...state.models, model] })),
