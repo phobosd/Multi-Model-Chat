@@ -26,7 +26,7 @@ export const useSettingsStore = create<SettingsState>()(
             models: [
                 {
                     id: 'exo-qwen-30b',
-                    name: 'EXO Qwen 30B',
+                    name: 'EXO Cluster',
                     provider: 'exo',
                     enabled: true,
                     baseUrl: 'http://10.244.250.55:8000/v1',

@@ -65,7 +65,7 @@ export function SettingsModal() {
                                     <button
                                         onClick={() => addModel({
                                             id: `exo-${Date.now()}`,
-                                            name: 'EXO Model',
+                                            name: 'EXO Cluster',
                                             provider: 'exo',
                                             enabled: true,
                                             baseUrl: 'http://localhost:52415/v1',
