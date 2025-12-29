@@ -108,27 +108,32 @@ function ModelCard({ model, onUpdate, onRemove }: {
     const [isLoadingModel, setIsLoadingModel] = useState<string | null>(null);
     const [isUnloadingModel, setIsUnloadingModel] = useState<string | null>(null);
     const [nodes, setNodes] = useState<any[]>([]);
-    const [isFetchingNodes, setIsFetchingNodes] = useState(false);
+    const [activeModels, setActiveModels] = useState<any[]>([]);
+    const [isFetchingStats, setIsFetchingStats] = useState(false);
 
     const handleSave = () => {
         onUpdate(model.id, data);
         setIsEditing(false);
     };
 
-    const fetchNodes = async () => {
+    const refreshStats = async () => {
         if (data.provider !== 'exo' || !data.baseUrl) return;
-        setIsFetchingNodes(true);
+        setIsFetchingStats(true);
         try {
-            const { fetchExoNodes } = await import('@/services/api');
-            const nodeData = await fetchExoNodes({
-                baseUrl: data.baseUrl,
-                apiKey: data.apiKey
-            });
+            const { fetchExoNodes, fetchExoActiveModels } = await import('@/services/api');
+
+            // Fetch both in parallel
+            const [nodeData, activeModelData] = await Promise.all([
+                fetchExoNodes({ baseUrl: data.baseUrl, apiKey: data.apiKey }),
+                fetchExoActiveModels({ baseUrl: data.baseUrl, apiKey: data.apiKey })
+            ]);
+
             setNodes(nodeData);
+            setActiveModels(activeModelData);
         } catch (error) {
-            console.error('Failed to fetch EXO nodes:', error);
+            console.error('Failed to fetch EXO stats:', error);
         } finally {
-            setIsFetchingNodes(false);
+            setIsFetchingStats(false);
         }
     };
 
@@ -136,7 +141,7 @@ function ModelCard({ model, onUpdate, onRemove }: {
 
     useEffect(() => {
         if (isEditing && data.provider === 'exo') {
-            fetchNodes();
+            refreshStats();
         }
     }, [isEditing, data.provider]);
 
@@ -172,11 +177,11 @@ function ModelCard({ model, onUpdate, onRemove }: {
                         <div className="flex items-center justify-between">
                             <label className="block text-xs text-slate-400">Cluster VRAM Usage</label>
                             <button
-                                onClick={fetchNodes}
+                                onClick={refreshStats}
                                 className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-                                disabled={isFetchingNodes}
+                                disabled={isFetchingStats}
                             >
-                                {isFetchingNodes ? 'Refreshing...' : 'Refresh Stats'}
+                                {isFetchingStats ? 'Refreshing...' : 'Refresh Stats'}
                             </button>
                         </div>
 
@@ -211,9 +216,48 @@ function ModelCard({ model, onUpdate, onRemove }: {
                             </div>
                         ) : (
                             <div className="text-[10px] text-slate-500 italic py-1">
-                                Click refresh to see cluster resource usage.
+                                No node data available.
                             </div>
                         )}
+
+                        {/* Active Models List */}
+                        <div className="pt-2 border-t border-slate-800/50">
+                            <label className="block text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-2">Active Models</label>
+                            {activeModels.length > 0 ? (
+                                <div className="space-y-2">
+                                    {activeModels.map((m) => (
+                                        <div key={m.id} className="flex items-center justify-between bg-slate-900/50 border border-slate-800 rounded-lg px-2 py-1.5 group/active">
+                                            <span className="text-xs text-slate-300 truncate mr-2">{m.modelId}</span>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!data.baseUrl) return;
+                                                    setIsUnloadingModel(m.id);
+                                                    try {
+                                                        const { unloadExoModel } = await import('@/services/api');
+                                                        await unloadExoModel({
+                                                            baseUrl: data.baseUrl,
+                                                            apiKey: data.apiKey,
+                                                            instanceId: m.id
+                                                        });
+                                                        await refreshStats();
+                                                    } catch (error) {
+                                                        alert(`Failed to unload: ${error instanceof Error ? error.message : String(error)}`);
+                                                    } finally {
+                                                        setIsUnloadingModel(null);
+                                                    }
+                                                }}
+                                                disabled={isUnloadingModel === m.id}
+                                                className="px-2 py-0.5 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-[10px] transition-all"
+                                            >
+                                                {isUnloadingModel === m.id ? '...' : 'Unload'}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-[10px] text-slate-500 italic">No models currently loaded.</div>
+                            )}
+                        </div>
                     </div>
                 )}
 
