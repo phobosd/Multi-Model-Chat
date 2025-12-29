@@ -21,9 +21,21 @@ export default defineConfig({
   server: {
     host: true, // Listen on all addresses, including LAN and public IP
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     host: true,
     port: 80,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
 })
