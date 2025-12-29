@@ -5,7 +5,7 @@ import { useChatStore, type Message, type MessageStats } from '@/store/chatStore
 import { sendMessage } from '@/services/api';
 import { useState, useEffect, useRef } from 'react';
 import type { ModelConfig } from '@/store/settingsStore';
-import { Brain, ChevronDown, ChevronUp, Zap, Clock, Activity } from 'lucide-react';
+import { Brain, ChevronDown, ChevronUp, Zap, Clock, Activity, Square } from 'lucide-react';
 
 function MessageContent({ content, isGenerating, stats }: { content: string; isGenerating: boolean; stats?: MessageStats }) {
     const [isThoughtExpanded, setIsThoughtExpanded] = useState(false);
@@ -96,6 +96,7 @@ export function ChatArea() {
     const { sessions, currentSessionId, addMessage, updateMessage, createSession, updateSessionTitle } = useChatStore();
     const [isGenerating, setIsGenerating] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const currentSession = sessions.find(s => s.id === currentSessionId);
 
@@ -110,6 +111,14 @@ export function ChatArea() {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [currentSession?.messages.length, currentSessionId, currentSession?.messages]);
+
+    const handleStop = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+            setIsGenerating(false);
+        }
+    };
 
     const handleSend = async (content: string, model: ModelConfig, attachments: string[]) => {
         if (!currentSessionId) return;
@@ -126,6 +135,8 @@ export function ChatArea() {
         addMessage(currentSessionId, { role: 'assistant', content: '' });
 
         setIsGenerating(true);
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         const startTime = Date.now();
         let firstTokenTime: number | null = null;
@@ -144,7 +155,7 @@ export function ChatArea() {
             // Get history for context (excluding the empty assistant message we just added)
             const history = session.messages.slice(0, -1);
 
-            const stream = sendMessage(history, model);
+            const stream = sendMessage(history, model, controller.signal);
             let fullContent = '';
 
             for await (const chunk of stream) {
@@ -183,16 +194,27 @@ export function ChatArea() {
                 }
                 updateSessionTitle(currentSessionId, title);
             }
-        } catch (error) {
-            console.error('Failed to send message:', error);
-            // We need to find the message again to update it with the error
-            const session = useChatStore.getState().sessions.find(s => s.id === currentSessionId);
-            const realAssistantMessage = session?.messages[session.messages.length - 1];
-            if (realAssistantMessage) {
-                updateMessage(currentSessionId, realAssistantMessage.id, "Error: Failed to generate response.");
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                console.log('Generation aborted by user');
+                // Update message to indicate it was stopped
+                const session = useChatStore.getState().sessions.find(s => s.id === currentSessionId);
+                const realAssistantMessage = session?.messages[session.messages.length - 1];
+                if (realAssistantMessage && !realAssistantMessage.content) {
+                    updateMessage(currentSessionId, realAssistantMessage.id, "_Generation stopped by user._");
+                }
+            } else {
+                console.error('Failed to send message:', error);
+                // We need to find the message again to update it with the error
+                const session = useChatStore.getState().sessions.find(s => s.id === currentSessionId);
+                const realAssistantMessage = session?.messages[session.messages.length - 1];
+                if (realAssistantMessage) {
+                    updateMessage(currentSessionId, realAssistantMessage.id, "Error: Failed to generate response.");
+                }
             }
         } finally {
             setIsGenerating(false);
+            abortControllerRef.current = null;
         }
     };
 
@@ -252,7 +274,18 @@ export function ChatArea() {
                 ))}
             </div>
 
-            <div className="p-4 border-t border-slate-800/50 bg-slate-950/50 backdrop-blur-md">
+            <div className="p-4 border-t border-slate-800/50 bg-slate-950/50 backdrop-blur-md relative">
+                {isGenerating && (
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2">
+                        <button
+                            onClick={handleStop}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-full text-xs font-medium shadow-lg border border-slate-700 transition-all animate-in fade-in slide-in-from-bottom-2"
+                        >
+                            <Square size={12} className="fill-white" />
+                            Stop Generating
+                        </button>
+                    </div>
+                )}
                 <div className="max-w-3xl mx-auto">
                     <PromptBar onSend={handleSend} disabled={isGenerating} />
                 </div>

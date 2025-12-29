@@ -43,6 +43,12 @@ app.post('/api/chat', async (req, res) => {
             });
         };
 
+        const controller = new AbortController();
+        req.on('close', () => {
+            console.log('[Chat] Client disconnected, aborting upstream request');
+            controller.abort();
+        });
+
         if (provider === 'openai' || provider === 'custom' || provider === 'exo') {
             let url = '';
             if (provider === 'custom' || provider === 'exo') {
@@ -70,6 +76,7 @@ app.post('/api/chat', async (req, res) => {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(apiBody),
+                signal: controller.signal
             });
 
             if (!response.ok) {
@@ -91,7 +98,11 @@ app.post('/api/chat', async (req, res) => {
             response.body.pipe(res);
 
             response.body.on('error', (err) => {
-                console.error('[Chat] Stream Error:', err);
+                if (err.name === 'AbortError') {
+                    console.log('[Chat] Upstream request aborted');
+                } else {
+                    console.error('[Chat] Stream Error:', err);
+                }
                 res.end();
             });
         } else if (provider === 'gemini') {
@@ -123,6 +134,7 @@ app.post('/api/chat', async (req, res) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents }),
+                signal: controller.signal
             });
 
             if (!response.ok) {
@@ -139,8 +151,14 @@ app.post('/api/chat', async (req, res) => {
             res.status(400).json({ error: `Provider ${provider} not implemented` });
         }
     } catch (error) {
-        console.error('Proxy Error:', error);
-        res.status(500).json({ error: error.message });
+        if (error.name === 'AbortError') {
+            console.log('[Chat] Request aborted by client');
+        } else {
+            console.error('Proxy Error:', error);
+            if (!res.headersSent) {
+                res.status(500).json({ error: error.message });
+            }
+        }
     }
 });
 

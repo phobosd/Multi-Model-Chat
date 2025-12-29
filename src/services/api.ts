@@ -5,7 +5,8 @@ const API_BASE = '/api';
 
 export async function* sendMessage(
     messages: Message[],
-    model: ModelConfig
+    model: ModelConfig,
+    signal?: AbortSignal
 ): AsyncGenerator<string, void, unknown> {
     // We send everything to our backend proxy
     const response = await fetch(`${API_BASE}/chat`, {
@@ -17,6 +18,7 @@ export async function* sendMessage(
             messages,
             model
         }),
+        signal
     });
 
     if (!response.ok) {
