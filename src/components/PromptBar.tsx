@@ -1,5 +1,5 @@
 import { Paperclip, Send, ChevronDown, Bot } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useSettingsStore, type ModelConfig } from '@/store/settingsStore';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +43,7 @@ export function PromptBar({ onSend, disabled }: PromptBarProps) {
         }
     }, [disabled]);
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
             const newAttachments: string[] = [];
@@ -74,7 +74,7 @@ export function PromptBar({ onSend, disabled }: PromptBarProps) {
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
