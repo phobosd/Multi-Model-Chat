@@ -1,6 +1,6 @@
 import { X, Plus, Trash2, Save, Search } from 'lucide-react';
 import { useSettingsStore, type ModelConfig } from '@/store/settingsStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 export function SettingsModal() {
@@ -107,11 +107,38 @@ function ModelCard({ model, onUpdate, onRemove }: {
     const [discoveredModels, setDiscoveredModels] = useState<any[]>([]);
     const [isLoadingModel, setIsLoadingModel] = useState<string | null>(null);
     const [isUnloadingModel, setIsUnloadingModel] = useState<string | null>(null);
+    const [nodes, setNodes] = useState<any[]>([]);
+    const [isFetchingNodes, setIsFetchingNodes] = useState(false);
 
     const handleSave = () => {
         onUpdate(model.id, data);
         setIsEditing(false);
     };
+
+    const fetchNodes = async () => {
+        if (data.provider !== 'exo' || !data.baseUrl) return;
+        setIsFetchingNodes(true);
+        try {
+            const { fetchExoNodes } = await import('@/services/api');
+            const nodeData = await fetchExoNodes({
+                baseUrl: data.baseUrl,
+                apiKey: data.apiKey
+            });
+            setNodes(nodeData);
+        } catch (error) {
+            console.error('Failed to fetch EXO nodes:', error);
+        } finally {
+            setIsFetchingNodes(false);
+        }
+    };
+
+    const formatGB = (bytes: number) => (bytes / (1024 ** 3)).toFixed(1);
+
+    useEffect(() => {
+        if (isEditing && data.provider === 'exo') {
+            fetchNodes();
+        }
+    }, [isEditing, data.provider]);
 
     if (isEditing) {
         return (
@@ -139,6 +166,56 @@ function ModelCard({ model, onUpdate, onRemove }: {
                         </select>
                     </div>
                 </div>
+
+                {data.provider === 'exo' && (
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="block text-xs text-slate-400">Cluster VRAM Usage</label>
+                            <button
+                                onClick={fetchNodes}
+                                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                                disabled={isFetchingNodes}
+                            >
+                                {isFetchingNodes ? 'Refreshing...' : 'Refresh Stats'}
+                            </button>
+                        </div>
+
+                        {nodes.length > 0 ? (
+                            <div className="space-y-3">
+                                {nodes.map((node) => {
+                                    const total = node.resources?.memory?.total || 0;
+                                    const available = node.resources?.memory?.available || 0;
+                                    const used = total - available;
+                                    const percent = total > 0 ? (used / total) * 100 : 0;
+
+                                    return (
+                                        <div key={node.id} className="space-y-1">
+                                            <div className="flex justify-between text-[10px]">
+                                                <span className="text-slate-300 truncate max-w-[150px]">{node.name || node.id}</span>
+                                                <span className="text-slate-400">
+                                                    {formatGB(used)}GB / {formatGB(total)}GB ({percent.toFixed(0)}%)
+                                                </span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                                <div
+                                                    className={cn(
+                                                        "h-full transition-all duration-500",
+                                                        percent > 90 ? "bg-red-500" : percent > 70 ? "bg-orange-500" : "bg-emerald-500"
+                                                    )}
+                                                    style={{ width: `${percent}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-[10px] text-slate-500 italic py-1">
+                                Click refresh to see cluster resource usage.
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div>
                     <label className="block text-xs text-slate-400 mb-1">API Key</label>

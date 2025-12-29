@@ -205,6 +205,38 @@ app.post('/api/exo/state', async (req, res) => {
     }
 });
 
+// Proxy for EXO nodes (resource usage)
+app.post('/api/exo/nodes', async (req, res) => {
+    const { baseUrl, apiKey } = req.body;
+
+    try {
+        if (!baseUrl) throw new Error('Base URL required for EXO nodes discovery');
+        const cleanBaseUrl = baseUrl.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+        const url = `${cleanBaseUrl}/nodes`;
+
+        const headers = {};
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+            // If /nodes doesn't exist, try /state as a fallback
+            const stateUrl = `${cleanBaseUrl}/state`;
+            const stateRes = await fetch(stateUrl, { headers });
+            if (stateRes.ok) {
+                const stateData = await stateRes.json();
+                return res.json(stateData.nodes || stateData);
+            }
+            return res.status(response.status).json({ error: response.statusText });
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('EXO Nodes Proxy Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Proxy for EXO instance previews
 app.post('/api/exo/instance/previews', async (req, res) => {
     const { baseUrl, apiKey, modelId } = req.body;

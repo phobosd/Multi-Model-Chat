@@ -243,3 +243,52 @@ export async function unloadExoModel(config: { baseUrl: string, apiKey?: string,
         throw error;
     }
 }
+
+export interface ExoNode {
+    id: string;
+    name?: string;
+    resources?: {
+        memory?: {
+            total: number;
+            available: number;
+        };
+        [key: string]: any;
+    };
+    [key: string]: any;
+}
+
+export async function fetchExoNodes(config: { baseUrl: string, apiKey?: string }): Promise<ExoNode[]> {
+    try {
+        const response = await fetch(`${API_BASE}/exo/nodes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch EXO nodes: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('[EXO] Nodes Data:', data);
+
+        // Normalize data
+        let nodes: any[] = [];
+        if (Array.isArray(data)) {
+            nodes = data;
+        } else if (data.nodes && Array.isArray(data.nodes)) {
+            nodes = data.nodes;
+        } else if (typeof data === 'object') {
+            // If it's a map of node IDs to node objects
+            nodes = Object.entries(data).map(([id, node]: [string, any]) => ({
+                id,
+                ...(typeof node === 'object' ? node : {})
+            }));
+        }
+
+        return nodes;
+    } catch (error) {
+        console.error('Error fetching EXO nodes:', error);
+        throw error;
+    }
+}
