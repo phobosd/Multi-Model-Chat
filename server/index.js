@@ -264,6 +264,36 @@ app.post('/api/exo/instance', async (req, res) => {
     }
 });
 
+// Proxy for EXO instance deletion (unloading a model)
+app.delete('/api/exo/instance/:id', async (req, res) => {
+    const { id } = req.params;
+    const { baseUrl, apiKey } = req.body;
+
+    try {
+        if (!baseUrl) throw new Error('Base URL required for EXO instance deletion');
+        const cleanBaseUrl = baseUrl.replace(/\/v1\/?$/, '').replace(/\/$/, '');
+        const url = `${cleanBaseUrl}/instance/${id}`;
+
+        const headers = {};
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return res.status(response.status).json({ error: errorText });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('EXO Instance Deletion Proxy Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Backend proxy server running on http://localhost:${PORT}`);
 });
