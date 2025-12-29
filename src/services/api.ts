@@ -119,13 +119,25 @@ export async function fetchExoActiveModels(config: { baseUrl: string, apiKey?: s
 
         if (data.instances && typeof data.instances === 'object') {
             Object.values(data.instances).forEach((inst: any) => {
+                // 1. Try direct model_id
                 if (inst.model_id) activeModels.push(inst.model_id);
-                else if (inst.model?.name) activeModels.push(inst.model.name);
-                else if (inst.model?.model_id) activeModels.push(inst.model.model_id);
+
+                // 2. Try nested strategy instances (like MlxRingInstance, PipelineInstance, etc.)
+                Object.values(inst).forEach((strategyInst: any) => {
+                    if (strategyInst?.shardAssignments?.modelId) {
+                        activeModels.push(strategyInst.shardAssignments.modelId);
+                    } else if (strategyInst?.modelId) {
+                        activeModels.push(strategyInst.modelId);
+                    }
+                });
+
+                // 3. Try inst.model.name or similar
+                if (inst.model?.name) activeModels.push(inst.model.name);
+                if (inst.model?.model_id) activeModels.push(inst.model.model_id);
             });
         }
 
-        // 2. Try 'active_models' (alternative)
+        // 4. Try 'active_models' (alternative)
         if (data.active_models && Array.isArray(data.active_models)) {
             data.active_models.forEach((m: any) => {
                 if (typeof m === 'string') activeModels.push(m);
@@ -133,7 +145,7 @@ export async function fetchExoActiveModels(config: { baseUrl: string, apiKey?: s
             });
         }
 
-        // 3. Try top-level array (if data itself is an array of instances)
+        // 5. Try top-level array
         if (Array.isArray(data)) {
             data.forEach((inst: any) => {
                 if (inst.model_id) activeModels.push(inst.model_id);
