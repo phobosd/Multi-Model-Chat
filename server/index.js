@@ -280,7 +280,7 @@ app.post('/api/exo/instance', async (req, res) => {
         const response = await fetch(url, {
             method: 'POST',
             headers,
-            body: JSON.stringify(instanceConfig)
+            body: JSON.stringify({ instance: instanceConfig })
         });
 
         if (!response.ok) {
