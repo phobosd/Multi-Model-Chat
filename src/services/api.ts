@@ -164,6 +164,7 @@ export async function fetchExoActiveModels(config: { baseUrl: string, apiKey?: s
 
 export async function loadExoModel(config: { baseUrl: string, apiKey?: string, modelId: string }): Promise<void> {
     try {
+        console.log(`[EXO] Requesting previews for: ${config.modelId}`);
         // 1. Get previews
         const previewRes = await fetch(`${API_BASE}/exo/instance/previews`, {
             method: 'POST',
@@ -176,18 +177,37 @@ export async function loadExoModel(config: { baseUrl: string, apiKey?: string, m
         });
 
         if (!previewRes.ok) {
-            const err = await previewRes.json();
-            throw new Error(err.error || 'Failed to fetch previews');
+            const err = await previewRes.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(err.error || `Failed to fetch previews (${previewRes.status})`);
         }
 
-        const previews = await previewRes.json();
-        if (!previews || previews.length === 0) {
-            throw new Error('No valid placements found for this model on the cluster.');
+        const data = await previewRes.json();
+        console.log('[EXO] Preview Data:', data);
+
+        // Handle different possible response formats
+        let previews = [];
+        if (Array.isArray(data)) {
+            previews = data;
+        } else if (data && Array.isArray(data.previews)) {
+            previews = data.previews;
+        } else if (data && data.instance) {
+            // If it returns a single preview object
+            previews = [data];
+        }
+
+        if (previews.length === 0) {
+            throw new Error('No valid placements found for this model on the cluster. Ensure your nodes have enough VRAM.');
         }
 
         // 2. Use the first preview to create the instance
-        // The 'instance' field in the preview is what we need for the POST /instance
-        const instanceConfig = previews[0].instance;
+        const firstPreview = previews[0];
+        if (!firstPreview || !firstPreview.instance) {
+            console.error('[EXO] Invalid preview structure:', firstPreview);
+            throw new Error('Received an invalid preview structure from the cluster.');
+        }
+
+        const instanceConfig = firstPreview.instance;
+        console.log('[EXO] Creating instance with config:', instanceConfig);
 
         const createRes = await fetch(`${API_BASE}/exo/instance`, {
             method: 'POST',
@@ -200,9 +220,10 @@ export async function loadExoModel(config: { baseUrl: string, apiKey?: string, m
         });
 
         if (!createRes.ok) {
-            const err = await createRes.json();
-            throw new Error(err.error || 'Failed to create instance');
+            const err = await createRes.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(err.error || `Failed to create instance (${createRes.status})`);
         }
+        console.log('[EXO] Instance created successfully');
     } catch (error) {
         console.error('Error loading EXO model:', error);
         throw error;
