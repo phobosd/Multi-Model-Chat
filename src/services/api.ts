@@ -278,13 +278,47 @@ export async function fetchExoNodes(config: { baseUrl: string, apiKey?: string }
             nodes = data;
         } else if (data.nodes && Array.isArray(data.nodes)) {
             nodes = data.nodes;
-        } else if (typeof data === 'object') {
-            // If it's a map of node IDs to node objects
-            nodes = Object.entries(data).map(([id, node]: [string, any]) => ({
+        } else if (data.nodeProfiles && typeof data.nodeProfiles === 'object') {
+            // EXO /state fallback: nodes are in nodeProfiles
+            nodes = Object.entries(data.nodeProfiles).map(([id, profile]: [string, any]) => ({
                 id,
-                ...(typeof node === 'object' ? node : {})
+                name: profile.name || id,
+                resources: {
+                    memory: {
+                        total: profile.device_info?.memory?.total || 0,
+                        available: profile.device_info?.memory?.available || 0
+                    }
+                }
             }));
+        } else if (data.topology?.nodes && typeof data.topology.nodes === 'object') {
+            // Another possible structure
+            nodes = Object.entries(data.topology.nodes).map(([id, node]: [string, any]) => ({
+                id,
+                name: node.name || id,
+                resources: node.resources || node.device_info || {}
+            }));
+        } else if (typeof data === 'object') {
+            // If it's a map of node IDs to node objects, filter for things that look like nodes
+            nodes = Object.entries(data)
+                .filter(([key, val]: [string, any]) => {
+                    // Filter out known non-node keys from the root state
+                    const nonNodeKeys = ['instances', 'runners', 'downloads', 'tasks', 'nodeProfiles', 'lastSeen', 'topology', 'lastEventAppliedIdx'];
+                    if (nonNodeKeys.includes(key)) return false;
+                    return typeof val === 'object' && val !== null;
+                })
+                .map(([id, node]: [string, any]) => ({
+                    id,
+                    ...(typeof node === 'object' ? node : {})
+                }));
         }
+
+        // Final pass to ensure memory info is in the right place
+        nodes = nodes.map(node => {
+            if (!node.resources?.memory && node.device_info?.memory) {
+                node.resources = { ...node.resources, memory: node.device_info.memory };
+            }
+            return node;
+        });
 
         return nodes;
     } catch (error) {

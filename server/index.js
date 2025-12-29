@@ -224,7 +224,9 @@ app.post('/api/exo/nodes', async (req, res) => {
             const stateRes = await fetch(stateUrl, { headers });
             if (stateRes.ok) {
                 const stateData = await stateRes.json();
-                return res.json(stateData.nodes || stateData);
+                // Try to find nodes in common locations
+                const nodes = stateData.nodes || stateData.topology?.nodes || stateData.nodeProfiles || stateData;
+                return res.json(nodes);
             }
             return res.status(response.status).json({ error: response.statusText });
         }
